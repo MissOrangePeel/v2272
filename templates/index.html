@@ -1,0 +1,2120 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NNScholar - 医学文献智能检索与分析系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #8B5CF6;
+            --secondary-color: #94A3B8;
+            --background-color: #000000;
+            --card-background: #111111;
+            --text-color: #E2E8F0;
+            --border-color: #222222;
+            --hover-color: #1A1A1A;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            --transition-speed: 0.3s;
+        }
+
+        body {
+            padding-top: 70px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        .navbar {
+            background: #000000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+            font-size: 1.5rem;
+            color: white !important;
+        }
+
+        .container {
+            max-width: 1000px;
+            padding: 0 20px;
+        }
+
+        .card {
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 24px;
+            box-shadow: var(--card-shadow);
+            transition: transform var(--transition-speed);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-title {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            font-size: 1.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: var(--secondary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control {
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 8px;
+            padding: 0.75rem;
+            transition: border-color var(--transition-speed);
+        }
+
+        .form-control:focus {
+            background-color: var(--card-background);
+            border-color: var(--primary-color);
+            color: var(--text-color);
+            box-shadow: 0 0 0 0.2rem rgba(139, 92, 246, 0.25);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all var(--transition-speed);
+        }
+
+        .btn-primary:hover {
+            background-color: #6D28D9;
+            transform: translateY(-1px);
+        }
+
+        .filters-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-group {
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .filter-title {
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .custom-checkbox {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 1rem;
+        }
+
+        .result-card {
+            background-color: var(--card-background);
+            border-left: 4px solid var(--primary-color);
+            margin-bottom: 1rem;
+            transition: all var(--transition-speed);
+        }
+
+        .result-card:hover {
+            transform: translateX(4px);
+        }
+
+        .result-title {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            color: var(--secondary-color);
+        }
+
+        .meta-item i {
+            margin-right: 0.5rem;
+            width: 16px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .export-section {
+            background-color: #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .export-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .export-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .export-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+
+        .export-item i {
+            margin-right: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        #search-strategy-container {
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        #search-strategy {
+            background-color: var(--card-background);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+        }
+
+        #search-stats {
+            margin: 20px 0;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        #search-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        #search-btn {
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+
+        #search-btn:hover {
+            background-color: #6D28D9;
+            transform: translateY(-1px);
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .toast {
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            color: white;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast.success { background-color: #28a745; }
+        .toast.error { background-color: #dc3545; }
+        .toast.warning { background-color: #ffc107; color: #000; }
+        .toast.info { background-color: #17a2b8; }
+
+        .mode-container {
+            transition: all 0.3s ease-in-out;
+        }
+        
+        .analysis-chart {
+            min-height: 400px;
+            width: 100%;
+            background: var(--card-background);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-color);
+        }
+        
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .no-data-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        /* 调整图表卡片样式 */
+        .chart-card {
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chart-card .card-title {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .btn-check:checked + .btn-outline-light {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 添加热点作者表格样式 */
+        .table-responsive {
+            margin-top: 1rem;
+        }
+        
+        .table {
+            font-size: 0.9rem;
+            color: var(--text-color);
+        }
+        
+        .table th {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 500;
+        }
+        
+        .table td {
+            vertical-align: middle;
+            background-color: var(--card-background);
+            border-color: var(--border-color);
+        }
+        
+        .author-rank {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .author-years {
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+        }
+
+        /* 添加搜索模式切换样式 */
+        .search-mode-toggle {
+            margin-bottom: 1rem;
+        }
+        
+        .search-mode-toggle .btn-group {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        
+        .search-mode-toggle .btn {
+            flex: 1;
+            text-align: center;
+        }
+        
+        /* 调整输入框样式 */
+        #search-input {
+            min-height: 60px;
+            resize: vertical;
+            transition: min-height 0.3s ease;
+        }
+        
+        #search-input.paragraph-mode {
+            min-height: 120px;
+        }
+        
+        /* 段落模式的结果样式 */
+        .sentence-result {
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+        }
+        
+        .sentence-text {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        
+        .papers-list {
+            margin-top: 1rem;
+        }
+        
+        .paper-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            border-color: var(--border-color);
+        }
+        
+        .paper-item:last-child {
+            border-bottom: none;
+        }
+
+        /* 添加页脚样式 */
+        .footer {
+            background: #000000;
+            color: white;
+            padding: 2rem 0;
+            margin-top: 3rem;
+            text-align: center;
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .footer p {
+            margin: 0;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+        
+        .footer .developer-info {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+        
+        .footer .wechat {
+            font-weight: bold;
+            color: #fff;
+        }
+
+        /* 导出按钮样式 */
+        .export-btn {
+            position: relative;
+        }
+        
+        .export-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 250px;
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .export-dropdown.show {
+            display: block;
+        }
+        
+        .export-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        
+        .export-item:hover {
+            background-color: var(--hover-color);
+        }
+        
+        .export-item i {
+            margin-right: 8px;
+            color: var(--primary-color);
+        }
+
+        .progress-container {
+            display: none;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .progress-title {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .progress-percentage {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .progress-bar-container {
+            height: 10px;
+            background-color: var(--border-color);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(135deg, var(--primary-color), #6D28D9);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 5px;
+        }
+        
+        .progress-message {
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+        }
+        
+        .progress-log {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: var(--hover-color);
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: var(--text-color);
+        }
+        
+        .progress-log-entry {
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .progress-log-entry:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .progress-log-time {
+            color: var(--secondary-color);
+            margin-right: 5px;
+        }
+        
+        .progress-log-message {
+            color: var(--text-color);
+        }
+        
+        .progress-log-error {
+            color: #ff4d4d;
+        }
+
+        .btn-outline-light:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .alert-info {
+            background-color: var(--card-background);
+            border-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        .form-text {
+            color: var(--secondary-color);
+        }
+
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-check:checked + .btn-outline-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* 修改图表主题配色 */
+        .visualMap {
+            color: var(--text-color);
+        }
+
+        /* 修改ECharts图表的文字颜色 */
+        .echarts-tooltip {
+            color: var(--text-color);
+        }
+
+        .echarts-title {
+            color: var(--text-color);
+        }
+
+        .echarts-legend {
+            color: var(--text-color);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-book-medical me-2"></i>
+                NNScholar
+            </a>
+            <!-- 添加模式切换按钮 -->
+            <div class="ms-auto">
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="search-mode" id="mode-normal" value="normal" checked>
+                    <label class="btn btn-outline-light" for="mode-normal">
+                        <i class="fas fa-search me-1"></i>文献检索
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="search-mode" id="mode-analysis" value="analysis">
+                    <label class="btn btn-outline-light" for="mode-analysis">
+                        <i class="fas fa-chart-line me-1"></i>热点分析
+                    </label>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="toast-container"></div>
+
+        <!-- 文献检索模式 -->
+        <div id="normal-mode-container" class="mode-container">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-search me-2"></i>
+                        文献检索
+                    </h5>
+                    <div class="search-container">
+                        <!-- 添加搜索模式切换 -->
+                        <div class="search-mode-toggle mb-3">
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="input-mode" id="mode-single" value="single" checked>
+                                <label class="btn btn-outline-primary" for="mode-single">
+                                    <i class="fas fa-search me-1"></i>单句模式
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="input-mode" id="mode-paragraph" value="paragraph">
+                                <label class="btn btn-outline-primary" for="mode-paragraph">
+                                    <i class="fas fa-paragraph me-1"></i>段落模式
+                                </label>
+                            </div>
+                            <div class="d-flex align-items-center mt-2">
+                                <small class="form-text text-muted me-3">段落模式：可一次性输入多个句子，系统将分别分析每句话的相关文献</small>
+                                <div id="paragraph-options" style="display: none;">
+                                    <select class="form-select form-select-sm" id="papers-per-sentence">
+                                        <option value="5">每句显示5篇</option>
+                                        <option value="10">每句显示10篇</option>
+                                        <option value="20">每句显示20篇</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="search-form">
+                            <textarea id="search-input" class="form-control" rows="3" 
+                                    placeholder="请输入搜索关键词..."></textarea>
+                            <button id="search-btn">生成检索策略</button>
+                        </div>
+
+                        <!-- 添加检索策略显示和编辑区域 -->
+                        <div id="search-strategy-container" style="display: none;" class="mt-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">检索策略</h5>
+                                    <div class="form-group">
+                                        <textarea id="search-strategy" class="form-control" rows="6"></textarea>
+                                    </div>
+                                    <div class="d-flex justify-content-between mt-3">
+                                        <button id="modify-strategy-btn" class="btn btn-secondary">修改检索策略</button>
+                                        <button id="execute-search-btn" class="btn btn-primary">开始检索</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 添加进度显示区域 - 移动到检索策略下方 -->
+                        <div id="searchProgress" class="progress-container mt-4">
+                            <h6 class="mb-3"><i class="fas fa-tasks me-2"></i>搜索进度实时监控</h6>
+                            <div class="progress-header">
+                                <div class="progress-title">当前进度</div>
+                                <div class="progress-percentage">0%</div>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar"></div>
+                            </div>
+                            <div class="progress-message">准备开始搜索...</div>
+                            <div class="progress-log-header mt-3 mb-2">
+                                <strong><i class="fas fa-list-ul me-2"></i>详细日志</strong>
+                            </div>
+                            <div class="progress-log"></div>
+                        </div>
+
+                        <!-- 添加检索结果统计信息 -->
+                        <div id="search-stats" style="display: none;" class="mt-4">
+                            <div class="alert alert-info">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="m-0">检索统计</h6>
+                                    <div class="export-btn">
+                                        <button id="stats-export-btn" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-file-export me-1"></i>导出
+                                        </button>
+                                        <div id="stats-export-dropdown" class="export-dropdown">
+                                            <div class="export-item" data-type="initial_word">
+                                                <i class="fas fa-file-word"></i>初始检索报告文档
+                                            </div>
+                                            <div class="export-item" data-type="filtered_word">
+                                                <i class="fas fa-file-word"></i>筛选后检索报告文档
+                                            </div>
+                                            <div class="export-item" data-type="initial_excel">
+                                                <i class="fas fa-file-excel"></i>初始检索表格
+                                            </div>
+                                            <div class="export-item" data-type="filtered_excel">
+                                                <i class="fas fa-file-excel"></i>筛选后检索表格
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>
+                                            <i class="fas fa-search me-2"></i>
+                                            初始检索到相关文献：<strong id="total-count">0</strong> 篇
+                                        </span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>
+                                            <i class="fas fa-filter me-2"></i>
+                                            符合筛选条件的文献：<strong id="filtered-count">0</strong> 篇
+                                        </span>
+                                    </div>
+                                    <div class="progress mt-2" style="height: 4px;">
+                                        <div class="progress-bar bg-primary" role="progressbar" 
+                                            style="width: 0%"
+                                            aria-valuenow="0" 
+                                            aria-valuemin="0" 
+                                            aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-muted small">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        筛选条件包括：年份、影响因子、JCR分区、CAS分区
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 添加筛选条件区域 -->
+                        <div class="filters-section mt-4">
+                            <div class="filter-group">
+                                <h6 class="filter-title">发表年份</h6>
+                                <div class="d-flex gap-2">
+                                    <input type="number" id="year-start" class="form-control form-control-sm" placeholder="起始年份">
+                                    <span class="align-self-center">-</span>
+                                    <input type="number" id="year-end" class="form-control form-control-sm" placeholder="结束年份">
+                                </div>
+                            </div>
+
+                            <div class="filter-group">
+                                <h6 class="filter-title">影响因子</h6>
+                                <input type="number" id="min-if" class="form-control form-control-sm" placeholder="最低影响因子" step="0.1">
+                            </div>
+
+                            <div class="filter-group">
+                                <h6 class="filter-title">JCR分区</h6>
+                                <div class="checkbox-group">
+                                    <label class="custom-checkbox">
+                                        <input type="checkbox" name="jcr" value="Q1"> Q1
+                                    </label>
+                                    <label class="custom-checkbox">
+                                        <input type="checkbox" name="jcr" value="Q2"> Q2
+                                    </label>
+                                    <label class="custom-checkbox">
+                                        <input type="checkbox" name="jcr" value="Q3"> Q3
+                                    </label>
+                                    <label class="custom-checkbox">
+                                        <input type="checkbox" name="jcr" value="Q4"> Q4
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="filter-group">
+                                <h6 class="filter-title">中科院分区</h6>
+                                <div class="checkbox-group">
+                                    <label class="custom-checkbox">
+                                        <input type="checkbox" name="cas" value="1"> 1区
+                                    </label>
+                                    <label class="custom-checkbox">
+                                        <input type="checkbox" name="cas" value="2"> 2区
+                                    </label>
+                                    <label class="custom-checkbox">
+                                        <input type="checkbox" name="cas" value="3"> 3区
+                                    </label>
+                                    <label class="custom-checkbox">
+                                        <input type="checkbox" name="cas" value="4"> 4区
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="filter-group">
+                                <h6 class="filter-title">显示数量</h6>
+                                <select id="papers-limit" class="form-select form-select-sm">
+                                    <option value="10">10篇</option>
+                                    <option value="20">20篇</option>
+                                    <option value="50">50篇</option>
+                                    <option value="100">100篇</option>
+                                    <option value="500">500篇</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 热点分析模式 -->
+        <div id="analysis-mode-container" class="mode-container" style="display: none;">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-line me-2"></i>
+                        期刊热点分析
+                    </h5>
+                    
+                    <!-- 期刊选择 -->
+                    <div class="form-group mb-3">
+                        <label class="form-label">期刊名称</label>
+                        <input type="text" class="form-control" id="journal-input" placeholder="请输入期刊名称（例如：Radiology）">
+                        <div class="form-text text-muted">请输入完整的期刊名称，支持任意PubMed收录的期刊</div>
+                    </div>
+                    
+                    <!-- 关键词方向（可选） -->
+                    <div class="form-group mb-3">
+                        <label class="form-label">关键词方向（可选）</label>
+                        <input type="text" class="form-control" id="keywords-input" placeholder="输入感兴趣的研究方向关键词，多个关键词请用逗号分隔">
+                        <div class="form-text text-muted">如果不填写，将分析所有研究方向</div>
+                    </div>
+                    
+                    <!-- 时间范围选择 -->
+                    <div class="form-group mb-3">
+                        <label class="form-label">分析时间范围</label>
+                        <div class="d-flex gap-2">
+                            <input type="number" class="form-control" id="analysis-year-start" placeholder="起始年份">
+                            <span class="align-self-center">-</span>
+                            <input type="number" class="form-control" id="analysis-year-end" placeholder="结束年份">
+                        </div>
+                    </div>
+                    
+                    <!-- 分析按钮 -->
+                    <button class="btn btn-primary" id="analyze-btn">
+                        <i class="fas fa-chart-bar me-1"></i>
+                        开始分析
+                    </button>
+                    
+                    <!-- 分析结果展示区域 -->
+                    <div id="analysis-results" class="mt-4" style="display: none;">
+                        <!-- 热点主题热力图 -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h6 class="card-title">研究热点分布</h6>
+                                <div id="heatmap-container" class="analysis-chart"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 热点词云 -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h6 class="card-title">热点词云</h6>
+                                <div id="wordcloud-container" class="analysis-chart"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 趋势图 -->
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">研究趋势变化</h6>
+                                <div id="trend-container" class="analysis-chart"></div>
+                            </div>
+                        </div>
+
+                        <!-- 热点作者 -->
+                        <div class="card mt-4">
+                            <div class="card-body">
+                                <h6 class="card-title">热点作者排名</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>排名</th>
+                                                <th>作者</th>
+                                                <th>发文总数</th>
+                                                <th>第一作者</th>
+                                                <th>通讯作者</th>
+                                                <th>发文年份</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="hot-authors-table">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading" class="loading">
+        <div class="loading-spinner"></div>
+        <p class="mt-3">正在检索中，请稍候...</p>
+    </div>
+    
+    <div id="results" class="mt-4" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="m-0">搜索结果</h5>
+            
+            <div class="export-btn">
+                <button id="export-btn" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-file-export me-1"></i>导出
+                </button>
+                <div id="export-dropdown" class="export-dropdown">
+                    <div class="export-item" data-type="initial_word">
+                        <i class="fas fa-file-word"></i>初始检索报告文档
+                    </div>
+                    <div class="export-item" data-type="filtered_word">
+                        <i class="fas fa-file-word"></i>筛选后检索报告文档
+                    </div>
+                    <div class="export-item" data-type="initial_excel">
+                        <i class="fas fa-file-excel"></i>初始检索表格
+                    </div>
+                    <div class="export-item" data-type="filtered_excel">
+                        <i class="fas fa-file-excel"></i>筛选后检索表格
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="resultsList"></div>
+    </div>
+
+    <!-- 添加页脚 -->
+    <footer class="footer">
+        <div class="container">
+            <p>NNscholar由华中科技大学同济医学院附属同济医院的刘远康博士开发，免费开源。</p>
+            <p class="developer-info">若有部署或其他需求，请联系微信：<span class="wechat">Blackbirdflyinthesky</span></p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentSearchStrategy = '';
+        let currentFilters = {};
+        let currentQuery = '';
+        let currentPapers = [];
+        let originalPapers = [];
+        
+        // 初始化Socket.IO连接
+        const socket = io();
+        
+        // 进度日志记录
+        let progressLogs = [];
+        const MAX_LOG_ENTRIES = 50;
+        
+        // 添加进度日志
+        function addProgressLog(message, isError = false) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            
+            // 创建日志条目
+            const logEntry = {
+                time: timeStr,
+                message: message,
+                isError: isError
+            };
+            
+            // 添加到日志数组
+            progressLogs.push(logEntry);
+            
+            // 如果日志条目超过最大数量，删除最早的条目
+            if (progressLogs.length > MAX_LOG_ENTRIES) {
+                progressLogs.shift();
+            }
+            
+            // 更新日志显示
+            updateProgressLogDisplay();
+        }
+        
+        // 更新进度日志显示
+        function updateProgressLogDisplay() {
+            const logContainer = document.querySelector('.progress-log');
+            if (!logContainer) return;
+            
+            // 清空当前日志
+            logContainer.innerHTML = '';
+            
+            // 添加所有日志条目
+            progressLogs.forEach(entry => {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'progress-log-entry';
+                
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'progress-log-time';
+                timeSpan.textContent = entry.time;
+                
+                const messageSpan = document.createElement('span');
+                messageSpan.className = entry.isError ? 'progress-log-error' : 'progress-log-message';
+                messageSpan.textContent = entry.message;
+                
+                logEntry.appendChild(timeSpan);
+                logEntry.appendChild(messageSpan);
+                logContainer.appendChild(logEntry);
+            });
+            
+            // 滚动到底部
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // 更新进度条
+        function updateProgressBar(percentage) {
+            const progressBar = document.querySelector('.progress-bar');
+            const percentageDisplay = document.querySelector('.progress-percentage');
+            
+            if (progressBar && percentageDisplay) {
+                progressBar.style.width = `${percentage}%`;
+                percentageDisplay.textContent = `${percentage}%`;
+            }
+        }
+        
+        // 更新进度消息
+        function updateProgressMessage(message) {
+            const progressMessage = document.querySelector('.progress-message');
+            if (progressMessage) {
+                progressMessage.textContent = message;
+            }
+        }
+        
+        // 显示进度容器
+        function showProgressContainer() {
+            const progressContainer = document.getElementById('searchProgress');
+            if (progressContainer) {
+                progressContainer.style.display = 'block';
+            }
+        }
+        
+        // 隐藏进度容器
+        function hideProgressContainer() {
+            const progressContainer = document.getElementById('searchProgress');
+            if (progressContainer) {
+                progressContainer.style.display = 'none';
+            }
+        }
+        
+        // 重置进度显示
+        function resetProgress() {
+            updateProgressBar(0);
+            updateProgressMessage('准备开始搜索...');
+            progressLogs = [];
+            updateProgressLogDisplay();
+        }
+        
+        // 监听搜索进度事件
+        socket.on('search_progress', function(data) {
+            console.log('搜索进度更新:', data);
+            
+            // 显示进度容器
+            showProgressContainer();
+            
+            // 添加日志
+            addProgressLog(data.message, data.stage.includes('error') || data.stage.includes('failed'));
+            
+            // 更新进度消息
+            updateProgressMessage(data.message);
+            
+            // 如果有百分比信息，更新进度条
+            if (data.percentage !== undefined) {
+                updateProgressBar(data.percentage);
+            }
+            
+            // 根据不同阶段处理
+            switch (data.stage) {
+                case 'search_complete':
+                    // 搜索完成，但保持进度显示
+                    break;
+                    
+                case 'error':
+                case 'search_error':
+                case 'search_failed':
+                    // 显示错误信息
+                    showToast(data.message, 'error');
+                    break;
+            }
+        });
+
+        function showToast(message, type = 'info') {
+            const toastContainer = document.querySelector('.toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => toast.classList.add('show'), 10);
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toastContainer.removeChild(toast), 300);
+            }, 3000);
+            
+            // 同时添加到进度日志
+            if (type === 'error' || type === 'warning') {
+                addProgressLog(message, type === 'error');
+            }
+        }
+
+        function showLoading(message = '正在处理中...') {
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.querySelector('p').textContent = message;
+                loading.style.display = 'block';
+            }
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.style.display = 'none';
+            }
+        }
+
+        function displayResults(papers) {
+            const resultsList = document.getElementById('resultsList');
+            const results = document.getElementById('results');
+            
+            if (!papers || papers.length === 0) {
+                resultsList.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        未找到相关文献
+                    </div>`;
+                results.style.display = 'block';
+                return;
+            }
+
+            resultsList.innerHTML = papers.map((paper, index) => `
+                <div class="card result-card">
+                    <div class="card-body">
+                        <h6 class="result-title">
+                            ${index + 1}. ${paper.title}
+                        </h6>
+                        <div class="result-meta">
+                            <div class="meta-item">
+                                <i class="fas fa-users"></i>
+                                ${paper.authors && paper.authors.length > 0 ? paper.authors[0] + (paper.authors.length > 1 ? ' 等' : '') : '无作者信息'}
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-calendar"></i>
+                                ${paper.pub_year || '无日期信息'}
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-book"></i>
+                                ${paper.journal_info ? paper.journal_info.title : '无期刊信息'}
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-chart-line"></i>
+                                IF: ${paper.journal_info ? paper.journal_info.impact_factor : 'N/A'}
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-star"></i>
+                                JCR: ${paper.journal_info ? paper.journal_info.jcr_quartile : 'N/A'}
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-award"></i>
+                                CAS: ${paper.journal_info ? paper.journal_info.cas_quartile : 'N/A'}
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-percentage"></i>
+                                相关度: ${paper.relevance ? paper.relevance.toFixed(1) : 0}%
+                            </div>
+                        </div>
+                        <a href="${paper.url}" target="_blank" class="btn btn-sm btn-primary">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            查看原文
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+
+            results.style.display = 'block';
+        }
+
+        document.getElementById('search-btn').addEventListener('click', function() {
+            const query = document.getElementById('search-input').value.trim();
+            const mode = document.querySelector('input[name="input-mode"]:checked').value;
+            const papersPerSentence = mode === 'paragraph' ? 
+                parseInt(document.getElementById('papers-per-sentence').value) : 10;
+            const yearStart = document.getElementById('year-start').value;
+            const yearEnd = document.getElementById('year-end').value;
+            
+            if (!query) {
+                showToast('请输入搜索内容', 'warning');
+                return;
+            }
+
+            // 重置并显示进度区域
+            resetProgress();
+            showProgressContainer();
+
+            // 显示加载状态
+            showLoading(mode === 'paragraph' ? '正在分析段落...' : '正在生成检索策略...');
+
+            // 构建请求数据对象
+            const requestData = {
+                query: query,
+                mode: mode,
+                papers_per_sentence: papersPerSentence,
+                generate_only: mode === 'single',  // 只在单句模式下生成检索策略
+                execute_search: mode === 'paragraph',  // 在段落模式下直接执行检索
+                year_start: yearStart || null,
+                year_end: yearEnd || null
+            };
+
+            // 发送请求
+            fetch('/api/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => handleFetchError(response))
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    if (mode === 'single') {
+                        // 单句模式：显示检索策略
+                        currentSearchStrategy = data.search_strategy;
+                        const strategyTextarea = document.getElementById('search-strategy');
+                        strategyTextarea.value = data.search_strategy;
+                        strategyTextarea.readOnly = false;
+                        document.getElementById('search-strategy-container').style.display = 'block';
+                        document.getElementById('results').style.display = 'none';
+                        document.getElementById('search-stats').style.display = 'none';
+                        showToast('检索策略已生成，您可以进行修改', 'success');
+                    } else {
+                        // 段落模式：直接显示结果
+                        document.getElementById('search-strategy-container').style.display = 'none';
+                        displayParagraphResults(data);
+                    }
+                } else {
+                    showToast(data.error || '处理失败', 'error');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showToast('处理过程中发生错误: ' + error.message, 'error');
+                console.error('Error:', error);
+            });
+        });
+
+        document.getElementById('modify-strategy-btn').addEventListener('click', function() {
+            const strategyTextarea = document.getElementById('search-strategy');
+            strategyTextarea.readOnly = false;
+            strategyTextarea.focus();
+        });
+
+        // 添加筛选条件更新函数
+        function updateFilters() {
+            const yearStart = document.getElementById('year-start').value;
+            const yearEnd = document.getElementById('year-end').value;
+            const minIf = document.getElementById('min-if').value;
+            const jcrCheckboxes = document.querySelectorAll('input[name="jcr"]:checked');
+            const casCheckboxes = document.querySelectorAll('input[name="cas"]:checked');
+            const papersLimit = document.getElementById('papers-limit').value;
+
+            currentFilters = {
+                year_start: yearStart || null,
+                year_end: yearEnd || null,
+                min_if: minIf || null,
+                jcr_quartile: Array.from(jcrCheckboxes).map(cb => cb.value),
+                cas_quartile: Array.from(casCheckboxes).map(cb => cb.value),
+                papers_limit: papersLimit
+            };
+        }
+
+        // 为所有筛选条件添加事件监听器
+        document.querySelectorAll('.filter-group input, .filter-group select').forEach(element => {
+            element.addEventListener('change', () => {
+                updateFilters();
+                // 如果已经有搜索结果，自动重新执行搜索
+                if (document.getElementById('results').style.display !== 'none') {
+                    document.getElementById('execute-search-btn').click();
+                }
+            });
+        });
+
+        document.getElementById('execute-search-btn').addEventListener('click', function() {
+            const query = document.getElementById('search-input').value.trim();
+            const searchStrategy = document.getElementById('search-strategy').value.trim();
+            const yearStart = document.getElementById('year-start').value;
+            const yearEnd = document.getElementById('year-end').value;
+
+            if (!query) {
+                showToast('请输入搜索关键词', 'warning');
+                return;
+            }
+
+            if (!searchStrategy) {
+                showToast('检索策略不能为空', 'warning');
+                return;
+            }
+
+            // 更新筛选条件
+            updateFilters();
+
+            // 更新全局变量
+            currentQuery = query;
+
+            // 重置并显示进度区域
+            resetProgress();
+            showProgressContainer();
+
+            // 显示加载状态
+            showLoading('正在执行文献检索...');
+
+            // 发送执行检索请求
+            fetch('/api/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query: query,
+                    search_strategy: searchStrategy,
+                    filters: currentFilters,
+                    generate_only: false,
+                    execute_search: true,
+                    year_start: yearStart || null,
+                    year_end: yearEnd || null
+                })
+            })
+            .then(response => handleFetchError(response))
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    // 更新全局变量
+                    currentPapers = data.data;
+                    originalPapers = data.original_papers || data.data;
+                    
+                    // 保存预生成的导出文件信息
+                    if (data.export_files) {
+                        window.exportFiles = {
+                            'initial_excel': data.export_files.initial_excel,
+                            'initial_word': data.export_files.initial_word,
+                            'filtered_excel': data.export_files.filtered_excel,
+                            'filtered_word': data.export_files.filtered_word
+                        };
+                    } else {
+                        window.exportFiles = null;
+                    }
+                    
+                    // 更新检索统计信息
+                    const searchStats = document.getElementById('search-stats');
+                    searchStats.innerHTML = `
+                        <div class="alert alert-info">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="m-0">检索统计</h6>
+                                <div class="export-btn">
+                                    <button id="stats-export-btn" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-file-export me-1"></i>导出
+                                    </button>
+                                    <div id="stats-export-dropdown" class="export-dropdown">
+                                        <div class="export-item" data-type="initial_word">
+                                            <i class="fas fa-file-word"></i>初始检索报告文档
+                                        </div>
+                                        <div class="export-item" data-type="filtered_word">
+                                            <i class="fas fa-file-word"></i>筛选后检索报告文档
+                                        </div>
+                                        <div class="export-item" data-type="initial_excel">
+                                            <i class="fas fa-file-excel"></i>初始检索表格
+                                        </div>
+                                        <div class="export-item" data-type="filtered_excel">
+                                            <i class="fas fa-file-excel"></i>筛选后检索表格
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-column gap-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <i class="fas fa-search me-2"></i>
+                                        初始检索到相关文献：<strong id="total-count">${data.total_count || 0}</strong> 篇
+                                    </span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <i class="fas fa-filter me-2"></i>
+                                        符合筛选条件的文献：<strong id="filtered-count">${data.filtered_count || 0}</strong> 篇
+                                    </span>
+                                </div>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar bg-primary" role="progressbar" 
+                                        style="width: ${data.filtered_count / data.total_count * 100}%"
+                                        aria-valuenow="${data.filtered_count}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="${data.total_count}">
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-muted small">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    筛选条件包括：年份、影响因子、JCR分区、CAS分区
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    searchStats.style.display = 'block';
+                    
+                    // 为新添加的导出按钮添加事件监听
+                    initializeStatsExportButton();
+
+                    // 显示搜索结果
+                    displayResults(data.data);
+                    
+                    // 保存当前检索策略
+                    currentSearchStrategy = searchStrategy;
+                    
+                    showToast(`检索完成，共找到 ${data.filtered_count || 0} 篇相关文献`, 'success');
+                } else {
+                    showToast(data.error || '检索失败', 'error');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showToast('执行检索时发生错误: ' + error.message, 'error');
+                console.error('Error:', error);
+            });
+        });
+
+        // 添加初始化统计区域导出按钮的函数
+        function initializeStatsExportButton() {
+            const exportBtn = document.getElementById('stats-export-btn');
+            const exportDropdown = document.getElementById('stats-export-dropdown');
+            
+            if (exportBtn) {
+                exportBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    exportDropdown.classList.toggle('show');
+                });
+                
+                // 点击其他区域关闭下拉菜单
+                document.addEventListener('click', function() {
+                    exportDropdown.classList.remove('show');
+                });
+                
+                // 防止点击下拉菜单本身关闭
+                exportDropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+                
+                // 为每个导出选项添加点击事件
+                exportDropdown.querySelectorAll('.export-item').forEach(item => {
+                    item.addEventListener('click', function() {
+                        const exportType = this.getAttribute('data-type');
+                        exportPapers(exportType);
+                        exportDropdown.classList.remove('show');
+                    });
+                });
+            }
+        }
+
+        // 初始化导出功能
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化搜索结果区域的导出按钮
+            initializeExportButton();
+            
+            // 初始化统计区域的导出按钮
+            initializeStatsExportButton();
+        });
+
+        // 修改原有的导出按钮初始化函数
+        function initializeExportButton() {
+            // 导出按钮点击事件
+            const exportBtn = document.getElementById('export-btn');
+            const exportDropdown = document.getElementById('export-dropdown');
+            
+            if (exportBtn) {
+                exportBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    exportDropdown.classList.toggle('show');
+                });
+                
+                // 点击其他区域关闭下拉菜单
+                document.addEventListener('click', function() {
+                    exportDropdown.classList.remove('show');
+                });
+                
+                // 防止点击下拉菜单本身关闭
+                exportDropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+                
+                // 为每个导出选项添加点击事件
+                exportDropdown.querySelectorAll('.export-item').forEach(item => {
+                    item.addEventListener('click', function() {
+                        const exportType = this.getAttribute('data-type');
+                        exportPapers(exportType);
+                        exportDropdown.classList.remove('show');
+                    });
+                });
+            }
+        }
+
+        // 添加错误处理函数
+        function handleFetchError(response) {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                });
+            }
+            return response.json();
+        }
+
+        // 模式切换处理
+        document.querySelectorAll('input[name="search-mode"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const normalMode = document.getElementById('normal-mode-container');
+                const analysisMode = document.getElementById('analysis-mode-container');
+                
+                if (this.value === 'normal') {
+                    normalMode.style.display = 'block';
+                    analysisMode.style.display = 'none';
+                } else {
+                    normalMode.style.display = 'none';
+                    analysisMode.style.display = 'block';
+                }
+            });
+        });
+
+        // 热点分析功能
+        document.getElementById('analyze-btn').addEventListener('click', function() {
+            const journal = document.getElementById('journal-input').value.trim();
+            const keywords = document.getElementById('keywords-input').value.trim();
+            const startYear = document.getElementById('analysis-year-start').value;
+            const endYear = document.getElementById('analysis-year-end').value;
+            
+            if (!journal || !startYear || !endYear) {
+                showToast('请至少填写期刊名称和时间范围', 'warning');
+                return;
+            }
+            
+            // 显示加载状态
+            showLoading('正在分析期刊数据...');
+            
+            // 调用后端API
+            fetch('/api/analyze-journal', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    journal: journal,
+                    keywords: keywords,
+                    start_year: startYear,
+                    end_year: endYear
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    displayAnalysisResults(data);
+                    showToast('期刊分析完成', 'success');
+                } else {
+                    showToast(data.error || '分析失败', 'error');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showToast('分析过程中发生错误: ' + error.message, 'error');
+            });
+        });
+
+        // 在分析结果处理函数中添加热点作者表格的渲染
+        function displayAnalysisResults(data) {
+            document.getElementById('analysis-results').style.display = 'block';
+            
+            // 等待DOM更新完成后再初始化图表
+            setTimeout(() => {
+                // 重新初始化所有图表容器
+                const containers = ['heatmap-container', 'wordcloud-container', 'trend-container'];
+                containers.forEach(id => {
+                    const container = document.getElementById(id);
+                    const chart = echarts.getInstanceByDom(container);
+                    if (chart) {
+                        chart.dispose();
+                    }
+                });
+
+                // 渲染热图
+                if (data.heatmap_data && data.heatmap_data.length > 0) {
+                    drawHeatmap(data.heatmap_data);
+                } else {
+                    document.getElementById('heatmap-container').innerHTML = 
+                        '<div class="text-center p-4">暂无热点分布数据</div>';
+                }
+
+                // 渲染词云
+                if (data.wordcloud_data && data.wordcloud_data.length > 0) {
+                    drawWordCloud(data.wordcloud_data);
+                } else {
+                    document.getElementById('wordcloud-container').innerHTML = 
+                        '<div class="text-center p-4">暂无词云数据</div>';
+                }
+
+                // 渲染趋势图
+                if (data.trend_data && data.trend_data.topics && data.trend_data.topics.length > 0) {
+                    drawTrendChart(data.trend_data);
+                } else {
+                    document.getElementById('trend-container').innerHTML = 
+                        '<div class="text-center p-4">暂无趋势数据</div>';
+                }
+            }, 100);
+            
+            // 渲染热点作者表格
+            const authorsTable = document.getElementById('hot-authors-table');
+            if (data.hot_authors && data.hot_authors.length > 0) {
+                authorsTable.innerHTML = data.hot_authors.map((author, index) => `
+                    <tr>
+                        <td class="author-rank">${index + 1}</td>
+                        <td>${author.name || 'N/A'}</td>
+                        <td>${author.total_papers || 0}</td>
+                        <td>${author.first_author || 0}</td>
+                        <td>${author.corresponding_author || 0}</td>
+                        <td class="author-years">${author.years ? author.years.join(', ') : 'N/A'}</td>
+                    </tr>
+                `).join('');
+            } else {
+                authorsTable.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center">暂无热点作者数据</td>
+                    </tr>
+                `;
+            }
+        }
+
+        // 绘制热力图
+        function drawHeatmap(data) {
+            const container = document.getElementById('heatmap-container');
+            if (!container) return;
+            
+            const chart = echarts.init(container);
+            
+            // 准备数据
+            const size = Math.ceil(Math.sqrt(data.length));
+            const matrix = new Array(size).fill(0).map(() => new Array(size).fill(0));
+            const labels = new Array(size).fill(0).map(() => new Array(size).fill(''));
+            
+            data.forEach((item, index) => {
+                const row = Math.floor(index / size);
+                const col = index % size;
+                if (row < size && col < size) {
+                    matrix[row][col] = item[1];  // 使用文章数量作为热度值
+                    labels[row][col] = item[0];  // 使用主题名称作为标签
+                }
+            });
+            
+            // 配置项
+            const option = {
+                tooltip: {
+                    position: 'top',
+                    formatter: function(params) {
+                        const word = labels[params.data[0]][params.data[1]];
+                        const value = params.data[2];
+                        if (word && value) {
+                            return `${word}<br/>文章数量: ${value}`;
+                        }
+                        return '';
+                    },
+                    textStyle: {
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim()
+                    }
+                },
+                backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--card-background').trim(),
+                animation: true,
+                grid: {
+                    height: '70%',
+                    top: '15%'
+                },
+                xAxis: {
+                    type: 'category',
+                    data: new Array(size).fill(0).map((_, i) => i),
+                    splitArea: {
+                        show: true
+                    },
+                    axisLabel: {show: false},
+                    splitLine: {show: false}
+                },
+                yAxis: {
+                    type: 'category',
+                    data: new Array(size).fill(0).map((_, i) => i),
+                    splitArea: {
+                        show: true
+                    },
+                    axisLabel: {show: false},
+                    splitLine: {show: false}
+                },
+                visualMap: {
+                    min: 0,
+                    max: Math.max(...matrix.flat()),
+                    calculable: true,
+                    orient: 'horizontal',
+                    left: 'center',
+                    bottom: '5%',
+                    textStyle: {
+                        color: '#E2E8F0'
+                    },
+                    inRange: {
+                        color: ['#111111', '#8B5CF6']
+                    }
+                },
+                series: [{
+                    name: '研究热点',
+                    type: 'heatmap',
+                    data: matrix.map((row, i) => 
+                        row.map((val, j) => [i, j, val])
+                    ).flat().filter(item => item[2] > 0),
+                    label: {
+                        show: true,
+                        formatter: function(params) {
+                            return labels[params.data[0]][params.data[1]];
+                        },
+                        fontSize: 10,
+                        color: '#E2E8F0',
+                        fontWeight: 'bold'
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    }
+                }]
+            };
+            
+            // 设置图表大小
+            chart.resize({
+                height: container.clientHeight || 400
+            });
+            
+            // 渲染图表
+            chart.setOption(option);
+            
+            // 监听容器大小变化
+            window.addEventListener('resize', () => {
+                chart.resize();
+            });
+        }
+
+        // 绘制词云
+        function drawWordCloud(data) {
+            const container = document.getElementById('wordcloud-container');
+            const chart = echarts.init(container);
+            
+            const option = {
+                backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--card-background').trim(),
+                tooltip: {
+                    show: true,
+                    formatter: function(params) {
+                        return `${params.data.name}: ${params.data.value}次`;
+                    },
+                    textStyle: {
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim()
+                    }
+                },
+                series: [{
+                    type: 'wordCloud',
+                    shape: 'circle',
+                    left: 'center',
+                    top: 'center',
+                    width: '90%',
+                    height: '90%',
+                    right: null,
+                    bottom: null,
+                    sizeRange: [12, 60],
+                    rotationRange: [-45, 45],
+                    rotationStep: 45,
+                    gridSize: 8,
+                    drawOutOfBound: false,
+                    textStyle: {
+                        fontFamily: 'sans-serif',
+                        fontWeight: 'bold',
+                        color: function() {
+                            return 'rgb(' + [
+                                Math.round(Math.random() * 200 + 55),
+                                Math.round(Math.random() * 200 + 55),
+                                Math.round(Math.random() * 200 + 55)
+                            ].join(',') + ')';
+                        }
+                    },
+                    emphasis: {
+                        textStyle: {
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(255, 255, 255, 0.2)'
+                        }
+                    },
+                    data: data.map(([name, value]) => ({
+                        name,
+                        value,
+                        textStyle: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim()
+                        }
+                    }))
+                }]
+            };
+            
+            chart.setOption(option);
+            window.addEventListener('resize', () => chart.resize());
+        }
+
+        // 绘制趋势图
+        function drawTrendChart(data) {
+            const container = document.getElementById('trend-container');
+            const chart = echarts.init(container);
+            
+            const option = {
+                backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--card-background').trim(),
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    textStyle: {
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim()
+                    }
+                },
+                legend: {
+                    data: data.topics,
+                    top: '5%',
+                    textStyle: {
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim()
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: data.years,
+                    axisLabel: {
+                        rotate: 45,
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim()
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim()
+                        }
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '出现频率',
+                    nameTextStyle: {
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim()
+                    },
+                    axisLabel: {
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim()
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim()
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim()
+                        }
+                    }
+                },
+                series: data.topics.map((topic, index) => ({
+                    name: topic,
+                    type: 'line',
+                    data: data.frequencies[index],
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 8,
+                    lineStyle: {
+                        width: 3
+                    }
+                }))
+            };
+            
+            chart.setOption(option);
+            window.addEventListener('resize', () => chart.resize());
+        }
+
+        // 添加模式切换处理
+        document.querySelectorAll('input[name="input-mode"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const paragraphOptions = document.getElementById('paragraph-options');
+                const searchStrategyContainer = document.getElementById('search-strategy-container');
+                const results = document.getElementById('results');
+                const searchStats = document.getElementById('search-stats');
+                
+                if (this.value === 'paragraph') {
+                    // 段落模式
+                    paragraphOptions.style.display = 'block';
+                    searchStrategyContainer.style.display = 'none';
+                    document.getElementById('search-btn').textContent = '开始分析';
+                } else {
+                    // 单句模式
+                    paragraphOptions.style.display = 'none';
+                    results.style.display = 'none';
+                    searchStats.style.display = 'none';
+                    document.getElementById('search-btn').textContent = '生成检索策略';
+                }
+            });
+        });
+
+        // 添加段落结果显示函数
+        function displayParagraphResults(data) {
+            const resultsList = document.getElementById('resultsList');
+            const results = document.getElementById('results');
+            
+            if (!data.sentences || data.sentences.length === 0) {
+                resultsList.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        未找到可分析的句子
+                    </div>`;
+                results.style.display = 'block';
+                return;
+            }
+
+            let html = `
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    共分析 ${data.sentences.length} 个句子
+                </div>
+            `;
+
+            data.sentences.forEach((sentence, index) => {
+                html += `
+                    <div class="sentence-result">
+                        <div class="sentence-text">
+                            <strong>句子 ${index + 1}:</strong> ${sentence.text}
+                        </div>
+                        <div class="search-strategy mb-3">
+                            <h6 class="mb-2">检索策略：</h6>
+                            <div class="bg-light p-2 rounded">
+                                <code>${sentence.search_strategy || '未生成检索策略'}</code>
+                            </div>
+                        </div>
+                        <div class="papers-list">
+                            <h6 class="mb-3">相关文献：</h6>
+                            ${sentence.papers.map((paper, pIndex) => `
+                                <div class="paper-item">
+                                    <h6 class="paper-title mb-2">
+                                        ${pIndex + 1}. ${paper.title}
+                                    </h6>
+                                    <div class="paper-meta">
+                                        <span class="me-3">
+                                            <i class="fas fa-users me-1"></i>
+                                            ${paper.authors && paper.authors.length > 0 ? paper.authors[0] + (paper.authors.length > 1 ? ' 等' : '') : '无作者信息'}
+                                        </span>
+                                        <span class="me-3">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            ${paper.pub_year || '无日期信息'}
+                                        </span>
+                                        <span class="me-3">
+                                            <i class="fas fa-book me-1"></i>
+                                            ${paper.journal_info ? paper.journal_info.title : '无期刊信息'}
+                                        </span>
+                                        <span class="me-3">
+                                            <i class="fas fa-chart-line me-1"></i>
+                                            IF: ${paper.journal_info ? paper.journal_info.impact_factor : 'N/A'}
+                                        </span>
+                                        <span class="me-3">
+                                            <i class="fas fa-star me-1"></i>
+                                            JCR: ${paper.journal_info ? paper.journal_info.jcr_quartile : 'N/A'}
+                                        </span>
+                                        <span class="me-3">
+                                            <i class="fas fa-award me-1"></i>
+                                            CAS: ${paper.journal_info ? paper.journal_info.cas_quartile : 'N/A'}
+                                        </span>
+                                        <span class="me-3">
+                                            <i class="fas fa-percentage me-1"></i>
+                                            相关度: ${paper.relevance ? paper.relevance.toFixed(1) : 0}%
+                                        </span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <a href="https://pubmed.ncbi.nlm.nih.gov/${paper.pmid}/" target="_blank" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-external-link-alt me-1"></i>
+                                            查看原文
+                                        </a>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            resultsList.innerHTML = html;
+            results.style.display = 'block';
+            
+            // 隐藏检索策略相关元素
+            document.getElementById('search-strategy-container').style.display = 'none';
+            document.getElementById('search-stats').style.display = 'none';
+        }
+
+        // 导出文件函数
+        function exportPapers(exportType) {
+            if (!currentQuery || (!currentPapers.length && !originalPapers.length)) {
+                showToast('没有可导出的文献数据', 'warning');
+                return;
+            }
+            
+            // 检查是否有预先生成的文件
+            if (window.exportFiles && window.exportFiles[exportType]) {
+                // 直接下载预先生成的文件
+                window.open(`/exports/${window.exportFiles[exportType]}`, '_blank');
+                return;
+            }
+            
+            // 如果没有预先生成的文件，则发送请求生成
+            showLoading('正在导出文献...');
+            
+            // 确定使用哪组文献数据
+            const papersToExport = exportType.includes('initial') ? originalPapers : currentPapers;
+            
+            // 发送导出请求
+            fetch('/api/export', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query: currentQuery,
+                    papers: papersToExport,
+                    export_type: exportType,
+                    filters: currentFilters
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    showToast('文件导出成功', 'success');
+                    // 打开下载链接
+                    window.open(`/exports/${data.file_name}`, '_blank');
+                } else {
+                    showToast(`导出失败: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showToast(`导出失败: ${error.message}`, 'error');
+                console.error('导出错误:', error);
+            });
+        }
+    </script>
+</body>
+</html> 

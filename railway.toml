@@ -1,0 +1,12 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "gunicorn --worker-class eventlet -w 1 app:app"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+numReplicas = 1
+
+[nixpacks]
+nixPkgs = ["gcc", "python39", "python39Packages.pip"]
